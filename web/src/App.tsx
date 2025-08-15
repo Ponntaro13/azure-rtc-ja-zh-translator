@@ -59,23 +59,11 @@ export default function App() {
 
     // 2) RTCPeerConnection（STUNのみ。本番はTURNを追加）
     const pc = new RTCPeerConnection({
-      iceServers: [
-        // STUN は併記でOK
-        { urls: "stun:stun.l.google.com:19302" },
-        {
-          urls: [
-            "turn:turn-example-com.japaneast.cloudapp.azure.com:3478?transport=udp",
-            "turn:turn-example-com.japaneast.cloudapp.azure.com:3478?transport=tcp",
-            // 証明書OKならTLSも
-            "turns:turn-example-com.japaneast.cloudapp.azure.com:5349?transport=tcp",
-          ],
-          username: "webrtcuser",         // 方式Aのとき
-          credential: "webrtcpw"
-          // 方式Bなら、サーバで HMAC を発行して渡す（下の例）
-        }
-      ],
-      iceTransportPolicy: "relay" // まずは確実に通すテスト。成功したら "all" に戻す
+      iceServers: [{ urls: "stun:stun.l.google.com:19302" }] // まずは STUN のみで通るか確認
+      // iceTransportPolicy は指定しない（= "all"）
     });
+    pc.oniceconnectionstatechange = () => console.log("ice:", pc.iceConnectionState);
+    pc.onicecandidateerror = (e) => console.warn("ice error", e);
     pcRef.current = pc;
 
     local.getTracks().forEach(tr => pc.addTrack(tr, local));
