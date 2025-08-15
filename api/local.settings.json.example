@@ -1,0 +1,13 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+
+    "WEB_PUBSUB_CONNECTION_STRING": "Endpoint=...;AccessKey=...;Version=1.0;",
+    "WEB_PUBSUB_HUB": "signal",
+
+    "SPEECH_KEY": "<your_speech_key>",
+    "SPEECH_REGION": "japaneast"
+  }
+}
