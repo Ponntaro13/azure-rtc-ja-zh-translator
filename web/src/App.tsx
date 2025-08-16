@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { WebPubSubClient } from "@azure/web-pubsub-client";
+import { setLogLevel } from "@azure/logger"; // Azure SDK の内部ログ
 import * as SpeechSDK from "microsoft-cognitiveservices-speech-sdk";
+import { attachPCDebug,parseCand } from "./utils/logging";
+
+setLogLevel("verbose"); // "info" でも可
 
 type Line = {
   id: string; who: "self" | "peer";
@@ -10,6 +14,16 @@ type Line = {
 type Signal = { type: "join" | "offer" | "answer" | "ice"; sdp?: any; candidate?: any; id?: string; };
 
 const roomFromURL = () => new URL(location.href).searchParams.get("room") || "demo";
+
+function sdpBrief(sdp?: RTCSessionDescriptionInit | null) {
+  if (!sdp) return null;
+  const lines = (sdp.sdp || "").split("\n");
+  const kinds = lines.filter(l => l.startsWith("m=")).map(l => l.trim());
+  const iceUfrag = lines.find(l => l.startsWith("a=ice-ufrag:"))?.split(":")[1]?.trim();
+  const icePwd = lines.find(l => l.startsWith("a=ice-pwd:"))?.split(":")[1]?.trim();
+  const dtls = lines.find(l => l.startsWith("a=fingerprint:"))?.slice(0,25) + "...";
+  return { type: sdp.type, mLines: kinds, iceUfrag, icePwd, dtls };
+}
 
 export default function App() {
   // Video refs
@@ -44,6 +58,10 @@ export default function App() {
      JSON.stringify({ ...payload, senderId: myConnIdRef.current }),
      "text"
    );
+   if (payload.type === "ice")
+     console.log("[wps] tx ice");
+   else
+     console.log("[wps] tx", payload.type);
  };
 
   // ===== Start =====
@@ -54,8 +72,24 @@ export default function App() {
     const local = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     if (localVideoRef.current) {
       localVideoRef.current.srcObject = local;
+      localVideoRef.current.onloadedmetadata = () => console.log("[media] local loadedmetadata");
       await localVideoRef.current.play();
+      console.log("[media] local play() resolved");      
     }
+
+    console.log("1. started");
+
+    console.log("[media] got local stream", {
+      audio: local.getAudioTracks().map(t => ({ id: t.id, label: t.label, enabled: t.enabled })),
+      video: local.getVideoTracks().map(t => ({ id: t.id, label: t.label, enabled: t.enabled }))
+    });
+
+    if (remoteVideoRef.current) {
+     remoteVideoRef.current.onloadedmetadata = () => console.log("[media] remote loadedmetadata");
+     remoteVideoRef.current.onplay = () => console.log("[media] remote play");
+     remoteVideoRef.current.onpause = () => console.log("[media] remote pause");
+    remoteVideoRef.current.onerror = (e) => console.warn("[media] remote video error", e);
+    }    
 
     // 2) RTCPeerConnection（STUNのみ。本番はTURNを追加）
     const pc = new RTCPeerConnection({
@@ -66,10 +100,17 @@ export default function App() {
     pc.onicecandidateerror = (e) => console.warn("ice error", e);
     pcRef.current = pc;
 
-    local.getTracks().forEach(tr => pc.addTrack(tr, local));
+    attachPCDebug(pc, "pc");
+
+    local.getTracks().forEach(tr =>{ 
+      pc.addTrack(tr, local);
+      console.log("[media] added track:", tr.kind, tr.id, tr.label);
+    }
+    );
 
     pc.ontrack = (ev) => {
       const [stream] = ev.streams;
+      console.log("[pc] ontrack streams:", ev.streams.length, "track:", ev.track.kind);
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = stream;
         remoteVideoRef.current.play().catch(() => {});
@@ -105,11 +146,15 @@ export default function App() {
       if (ev.candidate) sendSignal({ type: "ice", candidate: ev.candidate.toJSON() });
     };
 
+    console.log("2. RTCPeerConnection");
+
     // 3) Web PubSub 接続（/api/negotiate を使う）
     const wps = new WebPubSubClient({
       async getClientAccessUrl() {
         const r = await fetch("/api/negotiate", { method: "POST" });
+        console.log("[wps] negotiate status", r.status);
         const { url } = await r.json();
+        console.log("[wps] negotiate body", url);
         return url;
       }
     });
@@ -132,13 +177,17 @@ export default function App() {
       if (iAmOfferer) await makeOffer();
     }
       } else if (msg.type === "offer" && msg.sdp) {
+        console.log("[signal] rx offer", sdpBrief(msg.sdp));
         await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
+        console.log("[signal] send answer", sdpBrief(pc.localDescription));
         await sendSignal({ type: "answer", sdp: pc.localDescription });
       } else if (msg.type === "answer" && msg.sdp) {
+        console.log("[signal] rx answer", sdpBrief(msg.sdp));
         await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
       } else if (msg.type === "ice" && msg.candidate) {
+        console.log("[signal] rx ice", parseCand("candidate:" + msg.candidate.candidate));
         try { await pc.addIceCandidate(new RTCIceCandidate(msg.candidate)); } catch {}
       }
     });
@@ -158,6 +207,7 @@ export default function App() {
     const pc = pcRef.current!;
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
+    console.log("[signal] send offer", sdpBrief(pc.localDescription));
     await sendSignal({ type: "offer", sdp: pc.localDescription });
   };
 
