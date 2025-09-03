@@ -125,6 +125,7 @@ export default function App() {
         if (m.type === "caption") {
           pushLine({ id: crypto.randomUUID(), who: "peer", t: m.t, srcLang: m.srcLang, original: m.original, translated: m.translated });
         }
+        console.log(m.translated);
       } catch {}
     };
     sendChanRef.current = data;
@@ -266,6 +267,7 @@ export default function App() {
       const payload = { type: "caption", t: Date.now(), srcLang: lang, original: e.result.text, translated };
       // 自分のUI
       pushLine({ id: crypto.randomUUID(), who: "self", t: payload.t, srcLang: lang, original: payload.original, translated });
+      console.log(translated);
       setPartial("");
       // 相手に送信
       if (sendChanRef.current?.readyState === "open") {
