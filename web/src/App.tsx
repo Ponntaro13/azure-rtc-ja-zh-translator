@@ -125,7 +125,20 @@ export default function App() {
         if (m.type === "caption") {
           pushLine({ id: crypto.randomUUID(), who: "peer", t: m.t, srcLang: m.srcLang, original: m.original, translated: m.translated });
         }
+        console.log(m.original);
+        console.log(m.srcLang);
         console.log(m.translated);
+
+        // 元の言語で分岐
+        let target: "ja" | "zh" = "ja";
+        if (m.srcLang.startsWith("ja")) {
+          target = "zh";  // 日本語を話したなら中国語で再生
+        } else if (m.srcLang.startsWith("zh")) {
+          target = "ja";  // 中国語を話したなら日本語で再生
+        }
+
+        playTTS(m.translated, target);
+
       } catch {}
     };
     sendChanRef.current = data;
@@ -212,6 +225,34 @@ export default function App() {
     await sendSignal({ type: "offer", sdp: pc.localDescription });
   };
 
+  async function playTTS(text: string, target: "ja" | "zh" = "ja", format: "mp3" | "wav" = "mp3") {
+  // APIへPOST
+  const res = await fetch("/api/tts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text, target, format })
+  });
+
+  if (!res.ok) {
+    throw new Error(`TTS HTTP error: ${res.status}`);
+  }
+
+  // 音声を受け取って再生
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const audio = new Audio(url);
+
+  // 再生開始
+  await audio.play().catch(err => {
+    console.warn("Audio play failed (ユーザー操作が必要かも):", err);
+  });
+
+  // 終了したらURLを解放
+  audio.onended = () => URL.revokeObjectURL(url);
+
+  return audio; // 必要なら返す（制御したい場合）
+}
+
   const startSpeech = async (local: MediaStream)  => {
     const { token, region } = await (await fetch("/api/speechToken", { method: "POST" })).json();
 
@@ -267,7 +308,13 @@ export default function App() {
       const payload = { type: "caption", t: Date.now(), srcLang: lang, original: e.result.text, translated };
       // 自分のUI
       pushLine({ id: crypto.randomUUID(), who: "self", t: payload.t, srcLang: lang, original: payload.original, translated });
-      console.log(translated);
+
+      console.log(lang);
+      console.log(payload.original);
+      console.log(translated);     
+
+      playTTS(translated, toZh?"zh" : "ja" );
+
       setPartial("");
       // 相手に送信
       if (sendChanRef.current?.readyState === "open") {
@@ -309,8 +356,8 @@ export default function App() {
       <div style={{padding:12, overflow:"auto", background:"#101010", color:"#eee"}}>
         <div style={{display:"flex", gap:8, marginBottom:8}}>
           {!started
-            ? <button onClick={start} style={{padding:"8px 12px"}}>▶ 接続開始（room: {room}）</button>
-            : <button onClick={stop}  style={{padding:"8px 12px"}}>⏹ 終了</button>}
+            ? <button onClick={start} style={{padding:"8px 12px",background: "#FD5108", color: "black",border: "none"}}>▶ 接続開始（room: {room}）</button>
+            : <button onClick={stop}  style={{padding:"8px 12px",background: "#FD5108", color: "black",border: "none"}}>■ 終了</button>}
         </div>
 
         {partial && (
@@ -321,9 +368,9 @@ export default function App() {
         )}
 
         {lines.map(l => (
-          <div key={l.id} style={{padding:"10px 12px", marginBottom:10, background:"#171717", borderLeft:`4px solid ${l.who==="self"?"#2aa":"#e34"}`}}>
+          <div key={l.id} style={{padding:"10px 12px", marginBottom:10, background:"#171717", borderLeft:`4px solid ${l.who==="self"?"#FD5108":"#DFE3E6"}`}}>
             <div style={{fontSize:12, opacity:.7}}>
-              {new Date(l.t).toLocaleTimeString()} / {l.who === "self" ? "You" : "Peer"} / Detected: {l.srcLang}
+              {new Date(l.t).toLocaleTimeString()} / {l.who === "self" ? "Atsuhiko Ito" : "Yiran Zhang"} / Detected: {l.srcLang}
             </div>
             <div style={{fontWeight:600}}>{l.original}</div>
             <div>→ {l.translated}</div>
