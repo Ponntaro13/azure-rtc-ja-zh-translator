@@ -125,13 +125,6 @@ export default function App() {
         if (m.type === "caption") {
           pushLine({ id: crypto.randomUUID(), who: "peer", t: m.t, srcLang: m.srcLang, original: m.original, translated: m.translated });
         }
-        console.log(m.original);
-        console.log(m.srcLang);
-        console.log(m.translated);
-
-        const toZh = m.srcLang.startsWith("ja");
-
-        playTTS(m.translated, toZh ? "zh" : "ja" );
 
       } catch {}
     };
@@ -139,13 +132,30 @@ export default function App() {
 
     pc.ondatachannel = (ev) => {
       if (ev.channel.label === "captions") {
+        // ★受信側はこのチャネルが実体。送信用参照もこれに差し替える
+        sendChanRef.current = ev.channel;
+
+        ev.channel.onopen = () => console.log("[data] rx channel open");
         ev.channel.onmessage = (e) => {
           try {
             const m = JSON.parse(e.data);
             if (m.type === "caption") {
-              pushLine({ id: crypto.randomUUID(), who: "peer", t: m.t, srcLang: m.srcLang, original: m.original, translated: m.translated });
+              pushLine({
+                id: crypto.randomUUID(),
+                who: "peer",
+                t: m.t,
+                srcLang: m.srcLang,
+                original: m.original,
+                translated: m.translated
+              });
+
+              // ★受信側でも再生する
+              const toZh = (m.srcLang || "").startsWith("ja");
+              void playTTS(m.translated, toZh ? "zh" : "ja");
             }
-          } catch {}
+          } catch (err) {
+            console.warn("caption parse error:", err);
+          }
         };
       }
     };
