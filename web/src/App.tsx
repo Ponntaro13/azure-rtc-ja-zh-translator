@@ -129,15 +129,9 @@ export default function App() {
         console.log(m.srcLang);
         console.log(m.translated);
 
-        // 元の言語で分岐
-        let target: "ja" | "zh" = "ja";
-        if (m.srcLang.startsWith("ja")) {
-          target = "zh";  // 日本語を話したなら中国語で再生
-        } else if (m.srcLang.startsWith("zh")) {
-          target = "ja";  // 中国語を話したなら日本語で再生
-        }
+        const toZh = m.srcLang.startsWith("ja");
 
-        playTTS(m.translated, target);
+        playTTS(m.translated, toZh ? "zh" : "ja" );
 
       } catch {}
     };
@@ -309,17 +303,17 @@ export default function App() {
       // 自分のUI
       pushLine({ id: crypto.randomUUID(), who: "self", t: payload.t, srcLang: lang, original: payload.original, translated });
 
-      console.log(lang);
-      console.log(payload.original);
-      console.log(translated);     
-
-      playTTS(translated, toZh?"zh" : "ja" );
-
       setPartial("");
       // 相手に送信
       if (sendChanRef.current?.readyState === "open") {
         sendChanRef.current.send(JSON.stringify(payload));
       }
+
+      console.log(lang);
+      console.log(payload.original);
+      console.log(translated);     
+
+      playTTS(translated, toZh?"zh" : "ja" );      
     };
 
     //recognizer.canceled = () => stop();
@@ -370,7 +364,7 @@ export default function App() {
         {lines.map(l => (
           <div key={l.id} style={{padding:"10px 12px", marginBottom:10, background:"#171717", borderLeft:`4px solid ${l.who==="self"?"#FD5108":"#DFE3E6"}`}}>
             <div style={{fontSize:12, opacity:.7}}>
-              {new Date(l.t).toLocaleTimeString()} / {l.who === "self" ? "Atsuhiko Ito" : "Yiran Zhang"} / Detected: {l.srcLang}
+              {new Date(l.t).toLocaleTimeString()} / {l.srcLang === "ja-JP" ? "Atsuhiko Ito" : "Yiran Zhang"} / Detected: {l.srcLang}
             </div>
             <div style={{fontWeight:600}}>{l.original}</div>
             <div>→ {l.translated}</div>
