@@ -26,6 +26,32 @@ function sdpBrief(sdp?: RTCSessionDescriptionInit | null) {
 }
 
 export default function App() {
+  type CaptionMsg = {
+    type: "caption";
+    t: number;
+    srcLang: string;
+    original: string;
+    translated: string;
+  };
+
+  function handleIncomingCaption(m: CaptionMsg) {
+    // タイムラインに表示
+    pushLine({
+      id: crypto.randomUUID(),
+      who: "peer",
+      t: m.t,
+      srcLang: m.srcLang,
+      original: m.original,
+      translated: m.translated
+    });
+
+    // 元言語に応じて読み上げ言語を選択（ja→zh, zh→ja）
+    const target: "ja" | "zh" = m.srcLang.startsWith("ja") ? "zh" : "ja";
+
+    // 翻訳後テキストをTTS再生
+    playTTS(m.translated, target);
+  } 
+
   // Video refs
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -51,7 +77,7 @@ export default function App() {
 
   const pushLine = (l: Line) => setLines(prev => [l, ...prev].slice(0, 200));
 
- const sendSignal = async (payload: Signal) => {
+  const sendSignal = async (payload: Signal) => {
    const wps = wpsRef.current!;
    await wps.sendToGroup(
      room,
@@ -124,6 +150,7 @@ export default function App() {
         const m = JSON.parse(e.data);
         if (m.type === "caption") {
           pushLine({ id: crypto.randomUUID(), who: "peer", t: m.t, srcLang: m.srcLang, original: m.original, translated: m.translated });
+          handleIncomingCaption(m)
         }
 
       } catch {}
@@ -148,10 +175,7 @@ export default function App() {
                 original: m.original,
                 translated: m.translated
               });
-
-              // ★受信側でも再生する
-              const toZh = (m.srcLang || "").startsWith("ja");
-              void playTTS(m.translated, toZh ? "zh" : "ja");
+              handleIncomingCaption(m);
             }
           } catch (err) {
             console.warn("caption parse error:", err);
