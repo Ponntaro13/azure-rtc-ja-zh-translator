@@ -6,7 +6,7 @@ const SPEECH_REGION = process.env.SPEECH_REGION!; // 例: "japaneast"
 // 好みで調整OK
 const VOICE_MAP: Record<string, string> = {
   "ja": "ja-JP-NanamiNeural",
-  "zh": "zh-CN-YunyiMultilingualNeura ", // 簡体中国語
+  "zh": "zh-CN-YunyiMultilingualNeural", // 簡体中国語
 };
 
 const FORMAT_MAP = {
