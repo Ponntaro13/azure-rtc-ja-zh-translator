@@ -375,13 +375,13 @@ export default function App() {
   return (
     <div style={{height:"100vh", display:"grid", gridTemplateRows:"1fr 1fr"}}>
       {/* 上：ローカル／リモート映像 */}
-      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:8, background:"#000"}}>
+      <div style={{display:"grid", gridTemplateColumns:"1fr 1fr", gap:8, padding:8, background:"#ffffff"}}>
         <video ref={localVideoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} muted playsInline />
         <video ref={remoteVideoRef} style={{width:"100%",height:"100%",objectFit:"cover"}} playsInline />
       </div>
 
       {/* 下：字幕タイムライン */}
-      <div style={{padding:12, overflow:"auto", background:"#101010", color:"#eee"}}>
+      <div style={{padding:12, overflow:"auto", background:"#ffffff", color:"#000000"}}>
         <div style={{display:"flex", gap:8, marginBottom:8}}>
           {!started
             ? <button onClick={start} style={{padding:"8px 12px",background: "#FD5108", color: "black",border: "none"}}>▶ 接続開始（room: {room}）</button>
@@ -396,7 +396,7 @@ export default function App() {
         )}
 
         {lines.map(l => (
-          <div key={l.id} style={{padding:"10px 12px", marginBottom:10, background:"#171717", borderLeft:`4px solid ${l.who==="self"?"#FD5108":"#DFE3E6"}`}}>
+          <div key={l.id} style={{padding:"10px 12px", marginBottom:10, background:"#dfe3ef", borderLeft:`4px solid ${l.who==="self"?"#FD5108":"#000000"}`}}>
             <div style={{fontSize:12, opacity:.7}}>
               {new Date(l.t).toLocaleTimeString()} / {l.srcLang === "ja-JP" ? "Atsuhiko Ito" : "Yiran Zhang"} / Detected: {l.srcLang}
             </div>
